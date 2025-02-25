@@ -514,11 +514,15 @@ where
         problem.save_state();
 
         // Search for an optimal step.
-        self.ncall = self
+        let linesearch_result = self
             .vars
             .linesearch
-            .find(problem, &mut self.step)
-            .context("Failure during line search")?;
+            .find(problem, &mut self.step);
+        if (linesearch_result.is_err()) {
+            problem.revert();
+        }
+        self.ncall = linesearch_result.unwrap_or(0);
+
         let step_ls = self.step;
 
         // Update LBFGS iteration data.
