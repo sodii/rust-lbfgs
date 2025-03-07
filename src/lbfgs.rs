@@ -226,6 +226,12 @@ impl Lbfgs {
 
         self
     }
+    
+    pub fn with_m(mut self, m: usize) -> Self {
+        self.param.m = m;
+
+        self
+    }
 
     /// Set orthantwise parameters. See [Orthantwise] for parameters.
     pub fn with_orthantwise(mut self, c: f64, start: usize, end: impl Into<Option<usize>>) -> Self {
