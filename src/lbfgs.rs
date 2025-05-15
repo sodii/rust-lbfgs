@@ -1,7 +1,7 @@
 //!       Limited memory BFGS (L-BFGS).
 //
 //  Copyright (c) 1990, Jorge Nocedal
-//  Copyright (c) 2007-2010 Naoaki Okazaki
+//  Copyright (c) 2007-2Double::ZERO Naoaki Okazaki
 //  Copyright (c) 2018-2022 Wenping Guo
 //  All rights reserved.
 //
@@ -62,7 +62,24 @@ use crate::orthantwise::*;
 use crate::core::{Problem, Progress, Report};
 use crate::line::*;
 use crate::math::LbfgsMath;
+use qd::{dd, Double};
 
+#[inline]
+fn double_max(x: Double, y: Double) -> Double {
+    if x > y {
+        x
+    } else {
+        y
+    }
+}
+#[inline]
+fn double_min(x: Double, y: Double) -> Double {
+    if x < y {
+        x
+    } else {
+        y
+    }
+}
 /// L-BFGS optimization parameters.
 ///
 /// Call lbfgs_parameter_t::default() function to initialize parameters to the
@@ -88,7 +105,7 @@ pub struct LbfgsParam {
     ///
     /// where ||.|| denotes the Euclidean (L2) norm. The default value is \c
     /// 1e-5.
-    pub epsilon: f64,
+    pub epsilon: Double,
 
     /// Distance for delta-based convergence test.
     ///
@@ -108,7 +125,7 @@ pub struct LbfgsParam {
     /// iterations ago, and f is the objective value of the current iteration.
     /// The default value is 1e-5.
     ///
-    pub delta: f64,
+    pub delta: Double,
 
     /// The maximum number of LBFGS iterations.
     ///
@@ -138,11 +155,11 @@ pub struct LbfgsParam {
     pub orthantwise: Option<Orthantwise>,
 
     /// A factor for scaling initial step size.
-    pub initial_inverse_hessian: f64,
+    pub initial_inverse_hessian: Double,
 
     /// The maximum allowed step size for each optimization step, useful for
     /// preventing wild step.
-    pub max_step_size: f64,
+    pub max_step_size: Double,
 
     /// Powell damping
     pub damping: bool,
@@ -161,15 +178,15 @@ impl Default for LbfgsParam {
     fn default() -> Self {
         LbfgsParam {
             m: 6,
-            epsilon: 1e-5,
+            epsilon: dd!(1e-5),
             past: 0,
-            delta: 1e-5,
+            delta: dd!(1e-5),
             max_iterations: 0,
             max_evaluations: 0,
             orthantwise: None,
             linesearch: LineSearch::default(),
-            initial_inverse_hessian: 1.0,
-            max_step_size: 1.0,
+            initial_inverse_hessian: Double::ONE,
+            max_step_size: Double::ONE,
             damping: false,
             constrain_step_size: true,
         }
@@ -191,16 +208,19 @@ impl Lbfgs {
     /// ||g|| < epsilon * max(1, ||x||),
     ///
     /// where ||.|| denotes the Euclidean (L2) norm. The default value is 1e-5.
-    pub fn with_epsilon(mut self, epsilon: f64) -> Self {
-        assert!(epsilon.is_sign_positive(), "Invalid parameter epsilon specified.");
+    pub fn with_epsilon(mut self, epsilon: Double) -> Self {
+        assert!(
+            epsilon.is_sign_positive(),
+            "Invalid parameter epsilon specified."
+        );
 
         self.param.epsilon = epsilon;
 
         self
     }
 
-    /// Set initial step size for optimization. The default value is 1.0.
-    pub fn with_initial_step_size(mut self, b: f64) -> Self {
+    /// Set initial step size for optimization. The default value is Double::ONE.
+    pub fn with_initial_step_size(mut self, b: Double) -> Self {
         assert!(
             b.is_sign_positive(),
             "Invalid beta parameter for scaling the initial step size."
@@ -211,8 +231,8 @@ impl Lbfgs {
         self
     }
 
-    /// Set the maximum allowed step size for optimization. The default value is 1.0.
-    pub fn with_max_step_size(mut self, s: f64) -> Self {
+    /// Set the maximum allowed step size for optimization. The default value is Double::ONE.
+    pub fn with_max_step_size(mut self, s: Double) -> Self {
         assert!(s.is_sign_positive(), "Invalid max_step_size parameter.");
 
         self.param.max_step_size = s;
@@ -226,7 +246,7 @@ impl Lbfgs {
 
         self
     }
-    
+
     pub fn with_m(mut self, m: usize) -> Self {
         self.param.m = m;
 
@@ -234,7 +254,12 @@ impl Lbfgs {
     }
 
     /// Set orthantwise parameters. See [Orthantwise] for parameters.
-    pub fn with_orthantwise(mut self, c: f64, start: usize, end: impl Into<Option<usize>>) -> Self {
+    pub fn with_orthantwise(
+        mut self,
+        c: Double,
+        start: usize,
+        end: impl Into<Option<usize>>,
+    ) -> Self {
         assert!(
             c.is_sign_positive(),
             "Invalid parameter orthantwise c parameter specified."
@@ -256,8 +281,8 @@ impl Lbfgs {
     ///
     /// The default value is 1e-4. This parameter should be greater
     /// than zero and smaller than 0.5.
-    pub fn with_linesearch_ftol(mut self, ftol: f64) -> Self {
-        assert!(ftol >= 0.0, "Invalid parameter ftol specified.");
+    pub fn with_linesearch_ftol(mut self, ftol: Double) -> Self {
+        assert!(ftol >= Double::ZERO, "Invalid parameter ftol specified.");
         self.param.linesearch.ftol = ftol;
 
         self
@@ -270,10 +295,10 @@ impl Lbfgs {
     /// sometimes the case when solving very large problems) it may be
     /// advantageous to set this parameter to a small value. A typical small
     /// value is 0.1. This parameter should be greater than the ftol parameter
-    /// (1e-4) and smaller than 1.0.
-    pub fn with_linesearch_gtol(mut self, gtol: f64) -> Self {
+    /// (1e-4) and smaller than Double::ONE.
+    pub fn with_linesearch_gtol(mut self, gtol: Double) -> Self {
         assert!(
-            gtol >= 0.0 && gtol < 1.0 && gtol > self.param.linesearch.ftol,
+            gtol >= Double::ZERO && gtol < Double::ONE && gtol > self.param.linesearch.ftol,
             "Invalid parameter gtol specified."
         );
 
@@ -310,8 +335,8 @@ impl Lbfgs {
     ///  estimate the machine precision. The line search routine will terminate
     ///  with the status code (::LBFGSERR_ROUNDING_ERROR) if the relative width
     ///  of the interval of uncertainty is less than this parameter.
-    pub fn with_linesearch_xtol(mut self, xtol: f64) -> Self {
-        assert!(xtol >= 0.0, "Invalid parameter xtol specified.");
+    pub fn with_linesearch_xtol(mut self, xtol: Double) -> Self {
+        assert!(xtol >= Double::ZERO, "Invalid parameter xtol specified.");
 
         self.param.linesearch.xtol = xtol;
         self
@@ -323,8 +348,11 @@ impl Lbfgs {
     /// exponents are too large for the machine being used, or unless the
     /// problem is extremely badly scaled (in which case the exponents should be
     /// increased).
-    pub fn with_linesearch_min_step(mut self, min_step: f64) -> Self {
-        assert!(min_step >= 0.0, "Invalid parameter min_step specified.");
+    pub fn with_linesearch_min_step(mut self, min_step: Double) -> Self {
+        assert!(
+            min_step >= Double::ZERO,
+            "Invalid parameter min_step specified."
+        );
 
         self.param.linesearch.min_step = min_step;
         self
@@ -363,8 +391,8 @@ impl Lbfgs {
     ///
     /// The default value of delta is 1e-5.
     ///
-    pub fn with_fx_delta(mut self, delta: f64, past: usize) -> Self {
-        assert!(delta >= 0.0, "Invalid parameter delta specified.");
+    pub fn with_fx_delta(mut self, delta: Double, past: usize) -> Self {
+        assert!(delta >= Double::ZERO, "Invalid parameter delta specified.");
 
         self.param.past = past;
         self.param.delta = delta;
@@ -377,8 +405,12 @@ impl Lbfgs {
     pub fn with_linesearch_algorithm(mut self, algo: &str) -> Self {
         match algo {
             "MoreThuente" => self.param.linesearch.algorithm = LineSearchAlgorithm::MoreThuente,
-            "BacktrackingArmijo" => self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingArmijo,
-            "BacktrackingStrongWolfe" => self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingStrongWolfe,
+            "BacktrackingArmijo" => {
+                self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingArmijo
+            }
+            "BacktrackingStrongWolfe" => {
+                self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingStrongWolfe
+            }
             "BacktrackingWolfe" | "Backtracking" => {
                 self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingWolfe
             }
@@ -402,9 +434,9 @@ impl Lbfgs {
     /// # Return
     ///
     /// * on success, return final evaluated `Problem`.
-    pub fn minimize<E, G>(self, x: &mut [f64], eval_fn: E, mut prgr_fn: G) -> Result<Report>
+    pub fn minimize<E, G>(self, x: &mut [Double], eval_fn: E, mut prgr_fn: G) -> Result<Report>
     where
-        E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+        E: FnMut(&[Double], &mut [Double]) -> Result<Double>,
         G: FnMut(&Progress) -> bool,
     {
         let mut state = self.build(x, eval_fn)?;
@@ -430,7 +462,7 @@ impl Lbfgs {
 /// L-BFGS optimization state allowing iterative propagation
 pub struct LbfgsState<'a, E>
 where
-    E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+    E: FnMut(&[Double], &mut [Double]) -> Result<Double>,
 {
     /// LBFGS parameters
     vars: LbfgsParam,
@@ -438,7 +470,7 @@ where
     /// Define how to evaluate gradient and value
     prbl: Option<Problem<'a, E>>,
     end: usize,
-    step: f64,
+    step: Double,
     k: usize,
     lm_arr: Vec<IterationData>,
     ncall: usize,
@@ -446,9 +478,9 @@ where
 
 impl Lbfgs {
     /// Build LBFGS state struct for iteration.
-    pub fn build<'a, E>(self, x: &'a mut [f64], eval_fn: E) -> Result<LbfgsState<'a, E>>
+    pub fn build<'a, E>(self, x: &'a mut [Double], eval_fn: E) -> Result<LbfgsState<'a, E>>
     where
-        E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+        E: FnMut(&[Double], &mut [Double]) -> Result<Double>,
     {
         // Initialize the limited memory.
         let param = &self.param;
@@ -489,7 +521,7 @@ impl Lbfgs {
 
 impl<'a, E> LbfgsState<'a, E>
 where
-    E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+    E: FnMut(&[Double], &mut [Double]) -> Result<Double>,
 {
     /// Check if stopping critera met. Panics if not initialized.
     pub fn is_converged(&self) -> bool {
@@ -520,11 +552,8 @@ where
         problem.save_state();
 
         // Search for an optimal step.
-        let linesearch_result = self
-            .vars
-            .linesearch
-            .find(problem, &mut self.step);
-        if (linesearch_result.is_err()) {
+        let linesearch_result = self.vars.linesearch.find(problem, &mut self.step);
+        if linesearch_result.is_err() {
             problem.revert();
         }
         self.ncall = linesearch_result.unwrap_or(0);
@@ -547,17 +576,27 @@ where
         let d = problem.search_direction_mut();
 
         // Apply LBFGS recursion procedure.
-        self.end = lbfgs_two_loop_recursion(&mut self.lm_arr, d, gamma, self.vars.m, self.k - 1, self.end);
+        self.end = lbfgs_two_loop_recursion(
+            &mut self.lm_arr,
+            d,
+            gamma,
+            self.vars.m,
+            self.k - 1,
+            self.end,
+        );
 
         // Now the search direction d is ready.
         let dnorm = d.vec2norm();
-        ensure!(dnorm.is_sign_positive(), "invalid norm value: {dnorm}, dvector = {d:?}");
+        ensure!(
+            dnorm.is_sign_positive(),
+            "invalid norm value: {dnorm}, dvector = {d:?}"
+        );
 
         // Constrains the step size to prevent wild steps.
         if self.vars.constrain_step_size {
-            self.step = self.vars.max_step_size.min(dnorm) / dnorm;
+            self.step = double_min(self.vars.max_step_size, dnorm) / dnorm;
         } else {
-            self.step = 1.0;
+            self.step = Double::ONE;
         }
 
         // Constrain the search direction for orthant-wise updates.
@@ -578,8 +617,8 @@ where
 /// Algorithm 7.4, in Nocedal, J.; Wright, S. Numerical Optimization; Springer Science & Business Media, 2006.
 fn lbfgs_two_loop_recursion(
     lm_arr: &mut [IterationData],
-    d: &mut [f64], // search direction
-    gamma: f64,    // H_k^{0} = \gamma I
+    d: &mut [Double], // search direction
+    gamma: Double,    // H_k^{0} = \gamma I
     m: usize,
     k: usize,
     end: usize,
@@ -616,23 +655,23 @@ fn lbfgs_two_loop_recursion(
 /// Internal iternation data for L-BFGS
 #[derive(Clone)]
 struct IterationData {
-    alpha: f64,
+    alpha: Double,
 
-    s: Vec<f64>,
+    s: Vec<Double>,
 
-    y: Vec<f64>,
+    y: Vec<Double>,
 
     /// vecdot(y, s)
-    ys: f64,
+    ys: Double,
 }
 
 impl IterationData {
     fn new(n: usize) -> Self {
         IterationData {
-            alpha: 0.0,
-            ys: 0.0,
-            s: vec![0.0; n],
-            y: vec![0.0; n],
+            alpha: Double::ZERO,
+            ys: Double::ZERO,
+            s: vec![Double::ZERO; n],
+            y: vec![Double::ZERO; n],
         }
     }
 
@@ -647,13 +686,24 @@ impl IterationData {
     /// * damping: applying Powell damping to the gradient difference `y` helps
     ///   stabilize L-BFGS from numerical noise in function value and gradient
     ///
-    fn update(&mut self, x: &[f64], xp: &[f64], gx: &[f64], gp: &[f64], step: f64, damping: bool) -> Result<f64> {
+    fn update(
+        &mut self,
+        x: &[Double],
+        xp: &[Double],
+        gx: &[Double],
+        gp: &[Double],
+        step: Double,
+        damping: bool,
+    ) -> Result<Double> {
         // Update vectors s and y:
         // s_{k} = x_{k+1} - x_{k} = \alpha * d_{k}.
         // y_{k} = g_{k+1} - g_{k}.
         self.s.vecdiff(x, xp);
         let d = self.s.vec2norm();
-        ensure!(d != 0.0, "x not changed with step {step}\n x = {xp:?}");
+        ensure!(
+            d != Double::ZERO,
+            "x not changed with step {step}\n x = {xp:?}"
+        );
         self.y.vecdiff(gx, gp);
 
         // Compute scalars ys and yy:
@@ -662,7 +712,7 @@ impl IterationData {
         // Notice that yy is used for scaling the intial inverse hessian matrix H_0 (Cholesky factor).
         let ys = self.y.vecdot(&self.s);
         let yy = self.y.vecdot(&self.y);
-        ensure!(yy != 0.0, "gx not changed\n g = {gx:?}");
+        ensure!(yy != Double::ZERO, "gx not changed\n g = {gx:?}");
         self.ys = ys;
 
         // Al-Baali2014JOTA: Damped Techniques for the Limited Memory BFGS
@@ -671,10 +721,13 @@ impl IterationData {
         //
         // Nocedal suggests an equivalent value of 0.8 for sigma2 (Damped BFGS
         // updating)
-        let sigma2 = 0.6;
-        let sigma3 = 3.0;
+        let sigma2 = dd!(0.6);
+        let sigma3 = dd!(3);
         if damping {
-            debug!("Applying Powell damping, sigma2 = {}, sigma3 = {}", sigma2, sigma3);
+            debug!(
+                "Applying Powell damping, sigma2 = {}, sigma3 = {}",
+                &sigma2, &sigma3
+            );
 
             // B_k * Sk = B_k * (x_k + step*d_k - x_k) = B_k * step * d_k = -g_k * step
             let mut bs = gp.to_vec();
@@ -682,16 +735,16 @@ impl IterationData {
             // s_k^T * B_k * s_k
             let sbs = self.s.vecdot(&bs);
 
-            if ys < (1.0 - sigma2) * sbs {
+            if ys < (Double::ONE - sigma2) * sbs {
                 trace!("damping case1");
                 let theta = sigma2 * sbs / (sbs - ys);
-                bs.vecscale(1.0 - theta);
+                bs.vecscale(Double::ONE - theta);
                 bs.vecadd(&self.y, theta);
                 self.y.veccpy(&bs);
-            } else if ys > (1.0 + sigma3) * sbs {
+            } else if ys > (Double::ONE + sigma3) * sbs {
                 trace!("damping case2");
                 let theta = sigma3 * sbs / (ys - sbs);
-                bs.vecscale(1.0 - theta);
+                bs.vecscale(Double::ONE - theta);
                 bs.vecadd(&self.y, theta);
             } else {
                 trace!("damping case3");
@@ -721,8 +774,15 @@ fn satisfying_stop_conditions(param: &LbfgsParam, prgr: Progress) -> bool {
 /// The criterion is given by the following formula:
 ///     |g(x)| / \max(1, |x|) < \epsilon
 #[inline]
-fn satisfying_scaled_gnorm(prgr: &Progress, epsilon: f64) -> bool {
-    if prgr.gnorm / prgr.xnorm.max(1.0) <= epsilon {
+fn satisfying_scaled_gnorm(prgr: &Progress, epsilon: Double) -> bool {
+    if prgr.gnorm
+        / (if prgr.xnorm <= Double::ONE {
+            Double::ONE
+        } else {
+            prgr.xnorm
+        })
+        <= epsilon
+    {
         // Convergence.
         info!("L-BFGS reaches convergence.");
         true
@@ -758,7 +818,7 @@ fn satisfying_max_evaluations(prgr: &Progress, max_evaluations: usize) -> bool {
 }
 
 #[inline]
-fn satisfying_max_gnorm(prgr: &Progress, max_gnorm: f64) -> bool {
+fn satisfying_max_gnorm(prgr: &Progress, max_gnorm: Double) -> bool {
     prgr.gx.vec2norm() <= max_gnorm
 }
 
@@ -774,7 +834,7 @@ fn satisfying_max_gnorm(prgr: &Progress, max_gnorm: f64) -> bool {
 /// * delta: max fx delta allowed
 ///
 #[inline]
-fn satisfying_delta<'a>(prgr: &Progress, pf: &'a mut [f64], delta: f64) -> bool {
+fn satisfying_delta<'a>(prgr: &Progress, pf: &'a mut [Double], delta: Double) -> bool {
     let k = prgr.niter;
     let fx = prgr.fx;
     let past = pf.len();

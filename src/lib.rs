@@ -13,14 +13,14 @@
 //! const N: usize = 100;
 //!
 //! // 1. Initialize data
-//! let mut x = [0.0 as f64; N];
+//! let mut x = [0.0 as Double; N];
 //! for i in (0..N).step_by(2) {
 //!     x[i] = -1.2;
 //!     x[i + 1] = 1.0;
 //! }
 //!
 //! // 2. Defining how to evaluate function and gradient
-//! let evaluate = |x: &[f64], gx: &mut [f64]| {
+//! let evaluate = |x: &[Double], gx: &mut [Double]| {
 //!     let n = x.len();
 //!
 //!     let mut fx = 0.0;
@@ -62,7 +62,6 @@ mod common {
 }
 
 use crate::common::*;
-use crate::core::*;
 
 pub mod line;
 pub mod math;
@@ -70,22 +69,23 @@ pub use crate::core::{Problem, Progress, Report};
 pub use crate::lbfgs::Lbfgs;
 pub use crate::orthantwise::*;
 
+use qd::{dd, Double};
 /// Create a default LBFGS optimizer.
 pub fn lbfgs() -> Lbfgs {
     Lbfgs::default()
 }
 
 /// Default test function (rosenbrock) adopted from liblbfgs sample.c
-pub fn default_evaluate() -> impl FnMut(&[f64], &mut [f64]) -> Result<f64> {
-    move |arr_x: &[f64], gx: &mut [f64]| {
+pub fn default_evaluate() -> impl FnMut(&[Double], &mut [Double]) -> Result<Double> {
+    move |arr_x: &[Double], gx: &mut [Double]| {
         let n = arr_x.len();
 
-        let mut fx = 0.0;
+        let mut fx = Double::ZERO;
         for i in (0..n).step_by(2) {
-            let t1 = 1.0 - arr_x[i];
-            let t2 = 10.0 * (arr_x[i + 1] - arr_x[i] * arr_x[i]);
-            gx[i + 1] = 20.0 * t2;
-            gx[i] = -2.0 * (arr_x[i] * gx[i + 1] + t1);
+            let t1 = Double::ONE - arr_x[i];
+            let t2 = dd!(10) * (arr_x[i + 1] - arr_x[i] * arr_x[i]);
+            gx[i + 1] = dd!(20) * t2;
+            gx[i] = dd!(-2) * (arr_x[i] * gx[i + 1] + t1);
             fx += t1 * t1 + t2 * t2;
         }
 

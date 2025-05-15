@@ -3,40 +3,41 @@
 use crate::common::*;
 use crate::math::*;
 use crate::orthantwise::*;
+use qd::{dd, Double};
 
 /// Represents an optimization problem.
 ///
 /// `Problem` holds input variables `x`, gradient `gx` arrays, and function value `fx`.
 pub struct Problem<'a, E>
 where
-    E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+    E: FnMut(&[Double], &mut [Double]) -> Result<Double>,
 {
     /// x is an array of length n. on input it must contain the base point for
     /// the line search.
-    pub(crate) x: &'a mut [f64],
+    pub(crate) x: &'a mut [Double],
 
     /// `fx` is a variable. It must contain the value of problem `f` at
     /// x.
-    pub(crate) fx: f64,
+    pub(crate) fx: Double,
 
     /// `gx` is an array of length n. It must contain the gradient of `f` at
     /// x.
-    pub(crate) gx: Vec<f64>,
+    pub(crate) gx: Vec<Double>,
 
     /// Cached position vector of previous step.
-    pub(crate) xp: Vec<f64>,
+    pub(crate) xp: Vec<Double>,
 
     /// Cached gradient vector of previous step.
-    pub(crate) gp: Vec<f64>,
+    pub(crate) gp: Vec<Double>,
 
     /// Pseudo gradient for OrthantWise Limited-memory Quasi-Newton (owlqn) algorithm.
-    pg: Vec<f64>,
+    pg: Vec<Double>,
 
     /// For owlqn projection
-    wp: Vec<f64>,
+    wp: Vec<Double>,
 
     /// Search direction
-    d: Vec<f64>,
+    d: Vec<Double>,
 
     /// Store callback function for evaluating objective function.
     eval_fn: E,
@@ -53,19 +54,19 @@ where
 
 impl<'a, E> Problem<'a, E>
 where
-    E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+    E: FnMut(&[Double], &mut [Double]) -> Result<Double>,
 {
     /// Initialize problem with array length n
-    pub fn new(x: &'a mut [f64], eval: E, owlqn: Option<Orthantwise>) -> Self {
+    pub fn new(x: &'a mut [Double], eval: E, owlqn: Option<Orthantwise>) -> Self {
         let n = x.len();
         Problem {
-            fx: 0.0,
-            gx: vec![0.0; n],
-            xp: vec![0.0; n],
-            gp: vec![0.0; n],
-            pg: vec![0.0; n],
-            wp: vec![0.0; n],
-            d: vec![0.0; n],
+            fx: Double::ZERO,
+            gx: vec![Double::ZERO; n],
+            xp: vec![Double::ZERO; n],
+            gp: vec![Double::ZERO; n],
+            pg: vec![Double::ZERO; n],
+            wp: vec![Double::ZERO; n],
+            d: vec![Double::ZERO; n],
             evaluated: false,
             neval: 0,
             x,
@@ -75,10 +76,10 @@ where
     }
 
     /// Compute the initial gradient in the search direction.
-    pub fn dginit(&self) -> Result<f64> {
+    pub fn dginit(&self) -> Result<Double> {
         if self.owlqn.is_none() {
             let dginit = self.gx.vecdot(&self.d);
-            if dginit > 0.0 {
+            if dginit > Double::ZERO {
                 warn!(
                     "The current search direction increases the objective function value. dginit = {:-0.4}",
                     dginit
@@ -101,17 +102,17 @@ where
     }
 
     /// Return a reference to current search direction vector
-    pub fn search_direction(&self) -> &[f64] {
+    pub fn search_direction(&self) -> &[Double] {
         &self.d
     }
 
     /// Return a mutable reference to current search direction vector
-    pub fn search_direction_mut(&mut self) -> &mut [f64] {
+    pub fn search_direction_mut(&mut self) -> &mut [Double] {
         &mut self.d
     }
 
     /// Compute the gradient in the search direction without sign checking.
-    pub fn dg_unchecked(&self) -> f64 {
+    pub fn dg_unchecked(&self) -> Double {
         self.gx.vecdot(&self.d)
     }
 
@@ -152,7 +153,7 @@ where
     ///
     /// Compute the current value of x: x <- x + (*step) * d.
     ///
-    pub fn take_line_step(&mut self, step: f64) {
+    pub fn take_line_step(&mut self, step: Double) {
         self.x.veccpy(&self.xp);
         self.x.vecadd(&self.d, step);
 
@@ -169,8 +170,8 @@ where
 
         let n = self.x.len();
         for i in 0..n {
-            // let epsilon = if self.xp[i] == 0.0 { -self.pg[i] } else { self.xp[i] };
-            let epsilon = if self.xp[i] == 0.0 {
+            // let epsilon = if self.xp[i] == Double::ZERO { -self.pg[i] } else { self.xp[i] };
+            let epsilon = if self.xp[i] == Double::ZERO {
                 signum(-self.pg[i])
             } else {
                 signum(self.xp[i])
@@ -180,7 +181,7 @@ where
     }
 
     /// Return gradient vector norm: ||gx||
-    pub fn gnorm(&self) -> f64 {
+    pub fn gnorm(&self) -> Double {
         if self.owlqn.is_some() {
             self.pg.vec2norm()
         } else {
@@ -189,7 +190,7 @@ where
     }
 
     /// Return position vector norm: ||x||
-    pub fn xnorm(&self) -> f64 {
+    pub fn xnorm(&self) -> Double {
         self.x.vec2norm()
     }
 
@@ -222,22 +223,22 @@ where
 #[derive(Debug, Clone)]
 pub struct Progress<'a> {
     /// The current values of variables
-    pub x: &'a [f64],
+    pub x: &'a [Double],
 
     /// The current gradient values of variables.
-    pub gx: &'a [f64],
+    pub gx: &'a [Double],
 
     /// The current value of the objective function.
-    pub fx: f64,
+    pub fx: Double,
 
     /// The Euclidean norm of the variables
-    pub xnorm: f64,
+    pub xnorm: Double,
 
     /// The Euclidean norm of the gradients.
-    pub gnorm: f64,
+    pub gnorm: Double,
 
     /// The line-search step used for this iteration.
-    pub step: f64,
+    pub step: Double,
 
     /// The iteration count.
     pub niter: usize,
@@ -250,9 +251,9 @@ pub struct Progress<'a> {
 }
 
 impl<'a> Progress<'a> {
-    pub fn new<E>(prb: &'a Problem<E>, niter: usize, ncall: usize, step: f64) -> Self
+    pub fn new<E>(prb: &'a Problem<E>, niter: usize, ncall: usize, step: Double) -> Self
     where
-        E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+        E: FnMut(&[Double], &mut [Double]) -> Result<Double>,
     {
         Progress {
             x: &prb.x,
@@ -272,13 +273,13 @@ impl<'a> Progress<'a> {
 /// Represents the final optimization outcome
 pub struct Report {
     /// The current value of the objective function.
-    pub fx: f64,
+    pub fx: Double,
 
     /// The Euclidean norm of the variables
-    pub xnorm: f64,
+    pub xnorm: Double,
 
     /// The Euclidean norm of the gradients.
-    pub gnorm: f64,
+    pub gnorm: Double,
 
     /// The total number of evaluations.
     pub neval: usize,
@@ -287,7 +288,7 @@ pub struct Report {
 impl Report {
     pub(crate) fn new<E>(prb: &Problem<E>) -> Self
     where
-        E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+        E: FnMut(&[Double], &mut [Double]) -> Result<Double>,
     {
         Self {
             fx: prb.fx,

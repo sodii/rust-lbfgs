@@ -13,12 +13,9 @@ exclude = ["bin/*", "docs/*", "liblbfgs/", "*.note*"]
 [dependencies]
 log = "0.4"
 anyhow = "1"
+qd = { git = "https://github.com/Barandis/qd.git" }
 
 [dev-dependencies]
 approx = "0.5"
 criterion = "0.3"
 vecfx = { version="0.1", features = ["nalgebra"] }
-
-[[bench]]
-name = "rosenbrock"
-harness = false

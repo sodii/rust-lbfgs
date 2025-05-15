@@ -23,25 +23,12 @@
           modules = [
             ({ pkgs, config, ... }: with pkgs; {
 
-              services.postgres = {
-                enable = true;
-                package = pkgs.postgresql_15;
-                initialDatabases = [{
-                  name = "soneium";
-                }];
-                extensions = extensions: [
-                ];
-                listen_addresses = "127.0.0.1";
-                initialScript = ''
-                '';
-              }; # This is your devenv configuration
               packages = [
                 openssl
                 pkg-config
                 libclang.lib
                 llvmPackages.libcxxClang
                 clang
-                sqlite
                 gnum4
               ];
               hardeningDisable = [ "fortify" ];
