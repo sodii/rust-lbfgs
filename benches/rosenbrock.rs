@@ -43,7 +43,9 @@ fn rosenbrock() {
     const N: usize = 100;
 
     let mut x = init_variables(N);
-    lbfgs().minimize(&mut x, evaluate, |_| false).expect("lbfgs run");
+    lbfgs()
+        .minimize(&mut x, evaluate, |_| false)
+        .expect("lbfgs run");
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

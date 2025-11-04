@@ -192,7 +192,10 @@ impl Lbfgs {
     ///
     /// where ||.|| denotes the Euclidean (L2) norm. The default value is 1e-5.
     pub fn with_epsilon(mut self, epsilon: f64) -> Self {
-        assert!(epsilon.is_sign_positive(), "Invalid parameter epsilon specified.");
+        assert!(
+            epsilon.is_sign_positive(),
+            "Invalid parameter epsilon specified."
+        );
 
         self.param.epsilon = epsilon;
 
@@ -226,7 +229,7 @@ impl Lbfgs {
 
         self
     }
-    
+
     pub fn with_m(mut self, m: usize) -> Self {
         self.param.m = m;
 
@@ -377,8 +380,12 @@ impl Lbfgs {
     pub fn with_linesearch_algorithm(mut self, algo: &str) -> Self {
         match algo {
             "MoreThuente" => self.param.linesearch.algorithm = LineSearchAlgorithm::MoreThuente,
-            "BacktrackingArmijo" => self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingArmijo,
-            "BacktrackingStrongWolfe" => self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingStrongWolfe,
+            "BacktrackingArmijo" => {
+                self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingArmijo
+            }
+            "BacktrackingStrongWolfe" => {
+                self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingStrongWolfe
+            }
             "BacktrackingWolfe" | "Backtracking" => {
                 self.param.linesearch.algorithm = LineSearchAlgorithm::BacktrackingWolfe
             }
@@ -463,8 +470,14 @@ impl Lbfgs {
         problem.update_search_direction();
 
         // Compute the initial step:
-        let h0 = param.initial_inverse_hessian;
-        let step = problem.search_direction().vec2norminv() * h0;
+        let dnorm = problem.search_direction().vec2norm();
+        let step = if self.param.constrain_step_size {
+            // Same heuristic you already use after an iteration:
+            // gives step = 1 when ||d|| <= 1, else 1/||d||
+            self.param.max_step_size.min(dnorm) / (if dnorm > 0f64 { dnorm } else { 1f64 })
+        } else {
+            1f64
+        };
 
         // Apply Powell damping or not
         let damping = param.damping;
@@ -520,10 +533,7 @@ where
         problem.save_state();
 
         // Search for an optimal step.
-        let linesearch_result = self
-            .vars
-            .linesearch
-            .find(problem, &mut self.step);
+        let linesearch_result = self.vars.linesearch.find(problem, &mut self.step);
         if (linesearch_result.is_err()) {
             problem.revert();
         }
@@ -547,11 +557,21 @@ where
         let d = problem.search_direction_mut();
 
         // Apply LBFGS recursion procedure.
-        self.end = lbfgs_two_loop_recursion(&mut self.lm_arr, d, gamma, self.vars.m, self.k - 1, self.end);
+        self.end = lbfgs_two_loop_recursion(
+            &mut self.lm_arr,
+            d,
+            gamma,
+            self.vars.m,
+            self.k - 1,
+            self.end,
+        );
 
         // Now the search direction d is ready.
         let dnorm = d.vec2norm();
-        ensure!(dnorm.is_sign_positive(), "invalid norm value: {dnorm}, dvector = {d:?}");
+        ensure!(
+            dnorm.is_sign_positive(),
+            "invalid norm value: {dnorm}, dvector = {d:?}"
+        );
 
         // Constrains the step size to prevent wild steps.
         if self.vars.constrain_step_size {
@@ -647,7 +667,15 @@ impl IterationData {
     /// * damping: applying Powell damping to the gradient difference `y` helps
     ///   stabilize L-BFGS from numerical noise in function value and gradient
     ///
-    fn update(&mut self, x: &[f64], xp: &[f64], gx: &[f64], gp: &[f64], step: f64, damping: bool) -> Result<f64> {
+    fn update(
+        &mut self,
+        x: &[f64],
+        xp: &[f64],
+        gx: &[f64],
+        gp: &[f64],
+        step: f64,
+        damping: bool,
+    ) -> Result<f64> {
         // Update vectors s and y:
         // s_{k} = x_{k+1} - x_{k} = \alpha * d_{k}.
         // y_{k} = g_{k+1} - g_{k}.
@@ -674,7 +702,10 @@ impl IterationData {
         let sigma2 = 0.6;
         let sigma3 = 3.0;
         if damping {
-            debug!("Applying Powell damping, sigma2 = {}, sigma3 = {}", sigma2, sigma3);
+            debug!(
+                "Applying Powell damping, sigma2 = {}, sigma3 = {}",
+                sigma2, sigma3
+            );
 
             // B_k * Sk = B_k * (x_k + step*d_k - x_k) = B_k * step * d_k = -g_k * step
             let mut bs = gp.to_vec();

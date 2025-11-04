@@ -61,7 +61,10 @@ impl Orthantwise {
         let n = x.len();
         // do not panic when end parameter is too large
         let end = self.end.unwrap_or(n).min(n);
-        assert!(start < end, "invalid start for orthantwise: {start} (end = {end})");
+        assert!(
+            start < end,
+            "invalid start for orthantwise: {start} (end = {end})"
+        );
 
         (start, end)
     }
@@ -157,7 +160,11 @@ impl Orthantwise {
         //
         // there are some cases where the algorithm won't converge
         // (confirmed with the author, Galen Andrew).
-        assert_ne!(d.vec2norm(), 0.0, "invalid direction vector after constraints: {d:?}");
+        assert_ne!(
+            d.vec2norm(),
+            0.0,
+            "invalid direction vector after constraints: {d:?}"
+        );
     }
 }
 

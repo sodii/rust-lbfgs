@@ -29,7 +29,8 @@ fn test_owlqn() -> Result<()> {
         let xbeta = &xmat * &par;
         let xbeta_exp = xbeta.map(|x| x.exp());
         let par2 = par.map(|x| x.powi(2));
-        let fx = -1.0 * (&ymat.component_mul(&xbeta) - &xbeta_exp).sum() + 0.5 * (prec * par2).sum();
+        let fx =
+            -1.0 * (&ymat.component_mul(&xbeta) - &xbeta_exp).sum() + 0.5 * (prec * par2).sum();
 
         // calculate gx
         //

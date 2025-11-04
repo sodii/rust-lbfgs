@@ -259,7 +259,10 @@ where
         // Set the minimum and maximum steps to correspond to the
         // present interval of uncertainty.
         let (stmin, stmax) = if brackt {
-            (if stx <= sty { stx } else { sty }, if stx >= sty { stx } else { sty })
+            (
+                if stx <= sty { stx } else { sty },
+                if stx >= sty { stx } else { sty },
+            )
         } else {
             (stx, *stp + 4.0 * (*stp - stx))
         };
@@ -274,7 +277,8 @@ where
 
         // If an unusual termination is to occur then let
         // stp be the lowest point obtained so far.
-        if brackt && (*stp <= stmin || stmax <= *stp || param.max_linesearch <= count + 1 || uinfo != 0)
+        if brackt
+            && (*stp <= stmin || stmax <= *stp || param.max_linesearch <= count + 1 || uinfo != 0)
             || brackt && stmax - stmin <= param.xtol * stmax
         {
             *stp = stx
@@ -649,7 +653,17 @@ fn cubic_minimizer(cm: &mut f64, u: f64, fu: f64, du: f64, v: f64, fv: f64, dv: 
 ///  * xmin:   The minimum value.
 ///  * xmax:   The maximum value.
 #[inline]
-fn cubic_minimizer2(cm: &mut f64, u: f64, fu: f64, du: f64, v: f64, fv: f64, dv: f64, xmin: f64, xmax: f64) {
+fn cubic_minimizer2(
+    cm: &mut f64,
+    u: f64,
+    fu: f64,
+    du: f64,
+    v: f64,
+    fv: f64,
+    dv: f64,
+    xmin: f64,
+    xmax: f64,
+) {
     // STP - STX
     let d = v - u;
     let theta = (fu - fv) * 3.0 / d + du + dv;
