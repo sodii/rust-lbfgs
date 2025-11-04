@@ -782,7 +782,7 @@ where
         if param.gradient_only {
             info!("allow energy rises");
             let dg = prb.dg_unchecked();
-            if dg.abs() <= -param.gtol * dginit.abs() {
+            if dg.abs() <= param.gtol * dginit.abs() {
                 return Ok(count);
             }
         }
