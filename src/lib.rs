@@ -4,31 +4,33 @@
 //  All rights reserved.
 //
 //! Limited memory BFGS (L-BFGS) algorithm ported from liblbfgs
+#![feature(f128)]
 //!
 //! # Example
 //! ```
+//! #![feature(f128)]
 //! // 0. Import the lib
 //! use liblbfgs::lbfgs;
 //!
 //! const N: usize = 100;
 //!
 //! // 1. Initialize data
-//! let mut x = [0.0 as f64; N];
+//! let mut x = [0.0f128; N];
 //! for i in (0..N).step_by(2) {
 //!     x[i] = -1.2;
 //!     x[i + 1] = 1.0;
 //! }
 //!
 //! // 2. Defining how to evaluate function and gradient
-//! let evaluate = |x: &[f64], gx: &mut [f64]| {
+//! let evaluate = |x: &[f128], gx: &mut [f128]| {
 //!     let n = x.len();
 //!
-//!     let mut fx = 0.0;
+//!     let mut fx = 0.0f128;
 //!     for i in (0..n).step_by(2) {
-//!         let t1 = 1.0 - x[i];
-//!         let t2 = 10.0 * (x[i + 1] - x[i] * x[i]);
-//!         gx[i + 1] = 20.0 * t2;
-//!         gx[i] = -2.0 * (x[i] * gx[i + 1] + t1);
+//!         let t1 = 1.0f128 - x[i];
+//!         let t2 = 10.0f128 * (x[i + 1] - x[i] * x[i]);
+//!         gx[i + 1] = 20.0f128 * t2;
+//!         gx[i] = -2.0f128 * (x[i] * gx[i + 1] + t1);
 //!         fx += t1 * t1 + t2 * t2;
 //!     }
 //!
@@ -49,7 +51,7 @@
 //!     )
 //!     .expect("lbfgs owlqn minimize");
 //!
-//! println!("fx = {:}", prb.fx);
+//! println!("fx = {:}", prb.fx as f64);
 //! ```
 
 mod core;
@@ -76,16 +78,16 @@ pub fn lbfgs() -> Lbfgs {
 }
 
 /// Default test function (rosenbrock) adopted from liblbfgs sample.c
-pub fn default_evaluate() -> impl FnMut(&[f64], &mut [f64]) -> Result<f64> {
-    move |arr_x: &[f64], gx: &mut [f64]| {
+pub fn default_evaluate() -> impl FnMut(&[f128], &mut [f128]) -> Result<f128> {
+    move |arr_x: &[f128], gx: &mut [f128]| {
         let n = arr_x.len();
 
-        let mut fx = 0.0;
+        let mut fx: f128 = 0.0f128;
         for i in (0..n).step_by(2) {
-            let t1 = 1.0 - arr_x[i];
-            let t2 = 10.0 * (arr_x[i + 1] - arr_x[i] * arr_x[i]);
-            gx[i + 1] = 20.0 * t2;
-            gx[i] = -2.0 * (arr_x[i] * gx[i + 1] + t1);
+            let t1 = 1.0f128 - arr_x[i];
+            let t2 = 10.0f128 * (arr_x[i + 1] - arr_x[i] * arr_x[i]);
+            gx[i + 1] = 20.0f128 * t2;
+            gx[i] = -2.0f128 * (arr_x[i] * gx[i + 1] + t1);
             fx += t1 * t1 + t2 * t2;
         }
 
@@ -104,7 +106,7 @@ pub fn default_progress() -> impl FnMut(&Progress) -> bool {
         println!("Iteration {}, Evaluation {}:", prgr.niter, prgr.neval);
         println!(
             " fx = {:-12.6} xnorm = {:-12.6}, gnorm = {:-12.6}, ls = {}, step = {}",
-            prgr.fx, prgr.xnorm, prgr.gnorm, prgr.ncall, prgr.step
+            prgr.fx as f64, prgr.xnorm as f64, prgr.gnorm as f64, prgr.ncall, prgr.step as f64
         );
 
         false

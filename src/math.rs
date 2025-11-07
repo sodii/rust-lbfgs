@@ -7,7 +7,7 @@ pub trait LbfgsMath<T> {
 
     /// vector dot product
     /// s = x.dot(y)
-    fn vecdot(&self, other: &[T]) -> f64;
+    fn vecdot(&self, other: &[T]) -> T;
 
     /// y = z
     fn veccpy(&mut self, x: &[T]);
@@ -28,95 +28,99 @@ pub trait LbfgsMath<T> {
     fn vec2norminv(&self) -> T;
 }
 
-impl LbfgsMath<f64> for [f64] {
+impl LbfgsMath<f128> for [f128] {
     /// y += c*x
-    fn vecadd(&mut self, x: &[f64], c: f64) {
+    fn vecadd(&mut self, x: &[f128], c: f128) {
         for (y, x) in self.iter_mut().zip(x) {
             *y += c * x;
         }
     }
 
     /// s = y.dot(x)
-    fn vecdot(&self, other: &[f64]) -> f64 {
-        self.iter().zip(other).map(|(x, y)| x * y).sum()
+    fn vecdot(&self, other: &[f128]) -> f128 {
+        let mut acc: f128 = 0.0f128;
+        for (x, y) in self.iter().zip(other) {
+            acc += *x * *y;
+        }
+        acc
     }
 
     /// y *= c
-    fn vecscale(&mut self, c: f64) {
+    fn vecscale(&mut self, c: f128) {
         for y in self.iter_mut() {
             *y *= c;
         }
     }
 
     /// y = x
-    fn veccpy(&mut self, x: &[f64]) {
+    fn veccpy(&mut self, x: &[f128]) {
         for (v, x) in self.iter_mut().zip(x) {
             *v = *x;
         }
     }
 
     /// y = -x
-    fn vecncpy(&mut self, x: &[f64]) {
+    fn vecncpy(&mut self, x: &[f128]) {
         for (v, x) in self.iter_mut().zip(x) {
             *v = -x;
         }
     }
 
     /// z = x - y
-    fn vecdiff(&mut self, x: &[f64], y: &[f64]) {
+    fn vecdiff(&mut self, x: &[f128], y: &[f128]) {
         for ((z, x), y) in self.iter_mut().zip(x).zip(y) {
             *z = x - y;
         }
     }
 
     /// ||x||
-    fn vec2norm(&self) -> f64 {
+    fn vec2norm(&self) -> f128 {
         let n2 = self.vecdot(&self);
         n2.sqrt()
     }
 
     /// 1/||x||
-    fn vec2norminv(&self) -> f64 {
-        1.0 / self.vec2norm()
+    fn vec2norminv(&self) -> f128 {
+        1.0f128 / self.vec2norm()
     }
 }
 
 #[test]
 fn test_lbfgs_math() {
     // vector scaled add
-    let x = [1.0, 1.0, 1.0];
-    let c = 2.;
+    let x: [f128; 3] = [1.0f128, 1.0f128, 1.0f128];
+    let c: f128 = 2.0f128;
 
-    let mut y = [1.0, 2.0, 3.0];
+    let mut y: [f128; 3] = [1.0f128, 2.0f128, 3.0f128];
     y.vecadd(&x, c);
 
-    assert_eq!(3.0, y[0]);
-    assert_eq!(4.0, y[1]);
-    assert_eq!(5.0, y[2]);
+    assert_eq!(3.0f128, y[0]);
+    assert_eq!(4.0f128, y[1]);
+    assert_eq!(5.0f128, y[2]);
 
     // vector dot
     let v = y.vecdot(&x);
-    assert_eq!(12.0, v);
+    assert_eq!(12.0f128, v);
 
     // vector scale
-    y.vecscale(2.0);
-    assert_eq!(6.0, y[0]);
-    assert_eq!(8.0, y[1]);
-    assert_eq!(10.0, y[2]);
+    y.vecscale(2.0f128);
+    assert_eq!(6.0f128, y[0]);
+    assert_eq!(8.0f128, y[1]);
+    assert_eq!(10.0f128, y[2]);
 
     // vector diff
     let mut z = y.clone();
     z.vecdiff(&x, &y);
-    assert_eq!(-5.0, z[0]);
-    assert_eq!(-7.0, z[1]);
-    assert_eq!(-9.0, z[2]);
+    assert_eq!(-5.0f128, z[0]);
+    assert_eq!(-7.0f128, z[1]);
+    assert_eq!(-9.0f128, z[2]);
 
     // vector copy
     y.veccpy(&x);
 
     // y = -x
     y.vecncpy(&x);
-    assert_eq!(-1.0, y[0]);
-    assert_eq!(-1.0, y[1]);
-    assert_eq!(-1.0, y[2]);
+    assert_eq!(-1.0f128, y[0]);
+    assert_eq!(-1.0f128, y[1]);
+    assert_eq!(-1.0f128, y[2]);
 }

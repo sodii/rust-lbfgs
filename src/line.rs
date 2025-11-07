@@ -96,7 +96,7 @@ pub struct LineSearch {
     ///
     /// The default value is 1e-4. This parameter should be greater
     /// than zero and smaller than 0.5.
-    pub ftol: f64,
+    pub ftol: f128,
 
     /// A parameter to control the accuracy of the line search routine.
     ///
@@ -106,7 +106,7 @@ pub struct LineSearch {
     /// advantageous to set this parameter to a small value. A typical small
     /// value is 0.1. This parameter should be greater than the ftol parameter
     /// (1e-4) and smaller than 1.0.
-    pub gtol: f64,
+    pub gtol: f128,
 
     /// xtol is a nonnegative input variable. termination occurs when the
     /// relative width of the interval of uncertainty is at most xtol.
@@ -117,7 +117,7 @@ pub struct LineSearch {
     ///  estimate the machine precision. The line search routine will terminate
     ///  with the status code (::LBFGSERR_ROUNDING_ERROR) if the relative width
     ///  of the interval of uncertainty is less than this parameter.
-    pub xtol: f64,
+    pub xtol: f128,
 
     /// The minimum step of the line search routine.
     ///
@@ -125,7 +125,7 @@ pub struct LineSearch {
     /// the exponents are too large for the machine being used, or unless the
     /// problem is extremely badly scaled (in which case the exponents should be
     /// increased).
-    pub min_step: f64,
+    pub min_step: f128,
 
     /// The maximum step of the line search.
     ///
@@ -133,7 +133,7 @@ pub struct LineSearch {
     ///  the exponents are too large for the machine being used, or unless the
     ///  problem is extremely badly scaled (in which case the exponents should
     ///  be increased).
-    pub max_step: f64,
+    pub max_step: f128,
 
     /// The maximum number of trials for the line search.
     ///
@@ -150,11 +150,11 @@ pub struct LineSearch {
 impl Default for LineSearch {
     fn default() -> Self {
         LineSearch {
-            ftol: 1e-4,
-            gtol: 0.9,
-            xtol: f64::EPSILON,
-            min_step: 1e-20,
-            max_step: 1e+20,
+            ftol: 1e-4f128,
+            gtol: 0.9f128,
+            xtol: f128::from(f64::EPSILON),
+            min_step: 1e-20f128,
+            max_step: 1e20f128,
             max_linesearch: 20,
             gradient_only: false,
             algorithm: LineSearchAlgorithm::default(),
@@ -163,7 +163,7 @@ impl Default for LineSearch {
 }
 
 impl LineSearch {
-    fn validate_step(&self, step: f64) -> Result<()> {
+    fn validate_step(&self, step: f128) -> Result<()> {
         // The step is the minimum value.
         if step < self.min_step {
             bail!("The line-search step became smaller than LineSearch::min_step.");
@@ -190,14 +190,15 @@ impl LineSearch {
     ///
     /// * On success, return the number of line searching iterations
     ///
-    pub fn find<E>(&self, prb: &mut Problem<E>, step: &mut f64) -> Result<usize>
+    pub fn find<E>(&self, prb: &mut Problem<E>, step: &mut f128) -> Result<usize>
     where
-        E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+        E: FnMut(&[f128], &mut [f128]) -> Result<f128>,
     {
         // Check the input parameters for errors.
         ensure!(
             step.is_sign_positive(),
-            "A logic error (negative line-search step: {step}) occurred."
+            "A logic error (negative line-search step: {:.6}) occurred.",
+            *step as f64
         );
 
         // Search for an optimal step.
@@ -225,11 +226,11 @@ impl LineSearch {
 
 pub fn line_search_morethuente<E>(
     prb: &mut Problem<E>,
-    stp: &mut f64,      // Step size
+    stp: &mut f128,     // Step size
     param: &LineSearch, // line search parameters
 ) -> Result<usize>
 where
-    E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+    E: FnMut(&[f128], &mut [f128]) -> Result<f128>,
 {
     // Initialize local variables.
     let dginit = prb.dginit()?;
@@ -239,8 +240,8 @@ where
 
     let finit = prb.fx;
     let dgtest = param.ftol * dginit;
-    let mut width = param.max_step - param.min_step;
-    let mut prev_width = 2.0 * width;
+    let mut width: f128 = param.max_step - param.min_step;
+    let mut prev_width: f128 = 2.0f128 * width;
 
     // The variables stx, fx, dgx contain the values of the step,
     // function, and directional derivative at the best step.
@@ -249,7 +250,7 @@ where
     // the interval of uncertainty.
     // The variables stp, f, dg contain the values of the step,
     // function, and derivative at the current step.
-    let (mut stx, mut sty) = (0.0, 0.0);
+    let (mut stx, mut sty): (f128, f128) = (0.0f128, 0.0f128);
     let mut fx = finit;
     let mut fy = finit;
     let mut dgy = dginit;
@@ -264,7 +265,7 @@ where
                 if stx >= sty { stx } else { sty },
             )
         } else {
-            (stx, *stp + 4.0 * (*stp - stx))
+            (stx, *stp + 4.0f128 * (*stp - stx))
         };
 
         // Clip the step in the range of [stpmin, stpmax].
@@ -448,34 +449,34 @@ mod mcstep {
     /// - Status value. Zero indicates a normal termination.
     ///
     pub(crate) fn update_trial_interval(
-        x: &mut f64,
-        fx: &mut f64,
-        dx: &mut f64,
-        y: &mut f64,
-        fy: &mut f64,
-        dy: &mut f64,
-        t: &mut f64,
-        ft: f64,
-        dt: f64,
-        tmin: f64,
-        tmax: f64,
+        x: &mut f128,
+        fx: &mut f128,
+        dx: &mut f128,
+        y: &mut f128,
+        fy: &mut f128,
+        dy: &mut f128,
+        t: &mut f128,
+        ft: f128,
+        dt: f128,
+        tmin: f128,
+        tmax: f128,
         brackt: &mut bool,
     ) -> Result<i32> {
         // fsigndiff
-        let dsign = dt * (*dx / (*dx).abs()) < 0.0;
+        let dsign = dt * (*dx / (*dx).abs()) < 0.0f128;
         // minimizer of an interpolated cubic.
-        let mut mc = 0.;
+        let mut mc: f128 = 0.0f128;
         // minimizer of an interpolated quadratic.
-        let mut mq = 0.;
+        let mut mq: f128 = 0.0f128;
         // new trial value.
-        let mut newt = 0.;
+        let mut newt: f128 = 0.0f128;
 
         // Check the input parameters for errors.
         if *brackt {
             if *t <= x.min(*y) || x.max(*y) <= *t {
                 // The trival value t is out of the interval.
                 bail!("The line-search step went out of the interval of uncertainty.");
-            } else if 0.0 <= *dx * (*t - *x) {
+            } else if 0.0f128 <= *dx * (*t - *x) {
                 // The function must decrease from x.
                 bail!("The current search direction increases the objective function value.");
             } else if tmax < tmin {
@@ -496,7 +497,7 @@ mod mcstep {
             if (mc - *x).abs() < (mq - *x).abs() {
                 newt = mc
             } else {
-                newt = mc + 0.5 * (mq - mc)
+                newt = mc + 0.5f128 * (mq - mc)
             }
 
             1
@@ -593,7 +594,7 @@ mod mcstep {
         // Redefine the new trial value if it is close to the upper bound of the
         // interval.
         if *brackt && 0 != bound {
-            mq = *x + 0.66 * (*y - *x);
+            mq = *x + 0.66f128 * (*y - *x);
             if *x < *y {
                 if mq < newt {
                     newt = mq
@@ -621,9 +622,9 @@ mod mcstep {
 ///  * `fv`: The value of f(v).
 ///  * `dv`:  The value of f'(v).
 #[inline]
-fn cubic_minimizer(cm: &mut f64, u: f64, fu: f64, du: f64, v: f64, fv: f64, dv: f64) {
+fn cubic_minimizer(cm: &mut f128, u: f128, fu: f128, du: f128, v: f128, fv: f128, dv: f128) {
     let d = v - u;
-    let theta = (fu - fv) * 3.0 / d + du + dv;
+    let theta = (fu - fv) * 3.0f128 / d + du + dv;
 
     let mut p = theta.abs();
     let mut q = du.abs();
@@ -654,19 +655,19 @@ fn cubic_minimizer(cm: &mut f64, u: f64, fu: f64, du: f64, v: f64, fv: f64, dv: 
 ///  * xmax:   The maximum value.
 #[inline]
 fn cubic_minimizer2(
-    cm: &mut f64,
-    u: f64,
-    fu: f64,
-    du: f64,
-    v: f64,
-    fv: f64,
-    dv: f64,
-    xmin: f64,
-    xmax: f64,
+    cm: &mut f128,
+    u: f128,
+    fu: f128,
+    du: f128,
+    v: f128,
+    fv: f128,
+    dv: f128,
+    xmin: f128,
+    xmax: f128,
 ) {
     // STP - STX
     let d = v - u;
-    let theta = (fu - fv) * 3.0 / d + du + dv;
+    let theta = (fu - fv) * 3.0f128 / d + du + dv;
     let mut p = theta.abs();
     let mut q = du.abs();
     let mut r = dv.abs();
@@ -674,7 +675,7 @@ fn cubic_minimizer2(
     let s = (p.max(q)).max(r); // max3(p, q, r)
     let a = theta / s;
 
-    let mut gamma = s * (0f64.max(a * a - du / s * (dv / s)).sqrt());
+    let mut gamma = s * (0.0f128.max((a * a - du / s * (dv / s)).sqrt()));
     // STX < STP
     if u < v {
         gamma = -gamma
@@ -682,7 +683,7 @@ fn cubic_minimizer2(
     p = gamma - dv + theta;
     q = gamma - dv + gamma + du;
     r = p / q;
-    if r < 0.0 && gamma != 0.0 {
+    if r < 0.0f128 && gamma != 0.0f128 {
         *cm = v - r * d;
     // } else if a < 0 as f64 {
     //  ELSE IF (STP .GT. STX) THEN
@@ -703,9 +704,9 @@ fn cubic_minimizer2(
 /// * v  : The value of another point, v.
 /// * fv : The value of f(v).
 #[inline]
-fn quard_minimizer(qm: &mut f64, u: f64, fu: f64, du: f64, v: f64, fv: f64) {
+fn quard_minimizer(qm: &mut f128, u: f128, fu: f128, du: f128, v: f128, fv: f128) {
     let a = v - u;
-    *qm = u + du / ((fu - fv) / a + du) / 2.0 * a;
+    *qm = u + du / ((fu - fv) / a + du) / 2.0f128 * a;
 }
 
 /// Find a minimizer of an interpolated quadratic function.
@@ -717,7 +718,7 @@ fn quard_minimizer(qm: &mut f64, u: f64, fu: f64, du: f64, v: f64, fv: f64) {
 /// * `v`  :    The value of another point, v.
 /// * `dv` :    The value of f'(v).
 #[inline]
-fn quard_minimizer2(qm: &mut f64, u: f64, du: f64, v: f64, dv: f64) {
+fn quard_minimizer2(qm: &mut f128, u: f128, du: f128, v: f128, dv: f128) {
     let a = u - v;
     *qm = v + dv / (dv - du) * a;
 }
@@ -729,15 +730,15 @@ use self::LineSearchAlgorithm::*;
 /// it contains data on x + stp*d.
 pub fn line_search_backtracking<E>(
     prb: &mut Problem<E>,
-    stp: &mut f64,      // step length
+    stp: &mut f128,     // step length
     param: &LineSearch, // line search parameters
 ) -> Result<usize>
 where
-    E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+    E: FnMut(&[f128], &mut [f128]) -> Result<f128>,
 {
     let dginit = prb.dginit()?;
-    let dec: f64 = 0.5;
-    let inc: f64 = 2.1;
+    let dec: f128 = 0.5f128;
+    let inc: f128 = 2.1f128;
 
     // The initial value of the objective function.
     let finit = prb.fx;
@@ -749,7 +750,7 @@ where
         prb.update_orthant_new_point();
     }
 
-    let mut width: f64;
+    let mut width: f128;
     for count in 1..param.max_linesearch {
         prb.take_line_step(*stp);
 

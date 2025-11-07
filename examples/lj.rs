@@ -1,3 +1,5 @@
+#![feature(f128)]
+use liblbfgs::math::LbfgsMath;
 use vecfx::*;
 
 #[derive(Clone, Copy, Debug)]
@@ -69,7 +71,7 @@ fn main() {
 
     // LJ38
     #[rustfmt::skip]
-    let mut positions = [
+    let mut positions_f64 = [
     50.27754123,     50.04898929,     50.13164926,
     49.54021264,     50.20208324,     49.33142540,
     50.36795885,     50.91366213,     49.53932153,
@@ -109,18 +111,29 @@ fn main() {
     49.10265035,     52.00399992,     52.61150826,
     49.66462610,     47.60012985,     50.93620680];
 
-    lbfgs().minimize(
+    // convert to f128 buffer for optimizer
+    let mut positions: Vec<f128> = positions_f64.iter().copied().map(|v| v as f128).collect();
+
+    let _ = lbfgs().minimize(
         &mut positions,
-        |x: &[f64], gx: &mut [f64]| {
-            let energy = lj.evaluate(x.as_3d(), gx.as_mut_3d());
-            gx.vecscale(-1.0);
-            Ok(energy)
+        |x: &[f128], gx: &mut [f128]| {
+            // convert inputs to f64 for LJ evaluation
+            let xf64: Vec<f64> = x.iter().map(|&v| v as f64).collect();
+            let mut gf64 = vec![0.0f64; gx.len()];
+            let energy = lj.evaluate(xf64.as_slice().as_3d(), gf64.as_mut_slice().as_mut_3d());
+            // copy gradients back
+            for (gi, &v) in gx.iter_mut().zip(gf64.iter()) {
+                *gi = v as f128;
+            }
+            // negate gradients (descent)
+            gx.vecscale(-1.0f128);
+            Ok(energy as f128)
         },
         |prgr| {
-            println!("Iteration {}, Evaluation: {}", &prgr.niter, &prgr.neval);
+            println!("Iteration {}, Evaluation: {}", prgr.niter, prgr.neval);
             println!(
                 "  xnorm = {}, gnorm = {}, step = {}",
-                &prgr.xnorm, &prgr.gnorm, &prgr.step
+                prgr.xnorm as f64, prgr.gnorm as f64, prgr.step as f64
             );
             println!("");
             false

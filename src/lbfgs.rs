@@ -88,7 +88,7 @@ pub struct LbfgsParam {
     ///
     /// where ||.|| denotes the Euclidean (L2) norm. The default value is \c
     /// 1e-5.
-    pub epsilon: f64,
+    pub epsilon: f128,
 
     /// Distance for delta-based convergence test.
     ///
@@ -108,7 +108,7 @@ pub struct LbfgsParam {
     /// iterations ago, and f is the objective value of the current iteration.
     /// The default value is 1e-5.
     ///
-    pub delta: f64,
+    pub delta: f128,
 
     /// The maximum number of LBFGS iterations.
     ///
@@ -138,11 +138,11 @@ pub struct LbfgsParam {
     pub orthantwise: Option<Orthantwise>,
 
     /// A factor for scaling initial step size.
-    pub initial_inverse_hessian: f64,
+    pub initial_inverse_hessian: f128,
 
     /// The maximum allowed step size for each optimization step, useful for
     /// preventing wild step.
-    pub max_step_size: f64,
+    pub max_step_size: f128,
 
     /// Powell damping
     pub damping: bool,
@@ -161,15 +161,15 @@ impl Default for LbfgsParam {
     fn default() -> Self {
         LbfgsParam {
             m: 6,
-            epsilon: 1e-5,
+            epsilon: 1e-5f128,
             past: 0,
-            delta: 1e-5,
+            delta: 1e-5f128,
             max_iterations: 0,
             max_evaluations: 0,
             orthantwise: None,
             linesearch: LineSearch::default(),
-            initial_inverse_hessian: 1.0,
-            max_step_size: 1.0,
+            initial_inverse_hessian: 1.0f128,
+            max_step_size: 1.0f128,
             damping: false,
             constrain_step_size: true,
         }
@@ -191,7 +191,7 @@ impl Lbfgs {
     /// ||g|| < epsilon * max(1, ||x||),
     ///
     /// where ||.|| denotes the Euclidean (L2) norm. The default value is 1e-5.
-    pub fn with_epsilon(mut self, epsilon: f64) -> Self {
+    pub fn with_epsilon(mut self, epsilon: f128) -> Self {
         assert!(
             epsilon.is_sign_positive(),
             "Invalid parameter epsilon specified."
@@ -203,7 +203,7 @@ impl Lbfgs {
     }
 
     /// Set initial step size for optimization. The default value is 1.0.
-    pub fn with_initial_step_size(mut self, b: f64) -> Self {
+    pub fn with_initial_step_size(mut self, b: f128) -> Self {
         assert!(
             b.is_sign_positive(),
             "Invalid beta parameter for scaling the initial step size."
@@ -215,7 +215,7 @@ impl Lbfgs {
     }
 
     /// Set the maximum allowed step size for optimization. The default value is 1.0.
-    pub fn with_max_step_size(mut self, s: f64) -> Self {
+    pub fn with_max_step_size(mut self, s: f128) -> Self {
         assert!(s.is_sign_positive(), "Invalid max_step_size parameter.");
 
         self.param.max_step_size = s;
@@ -237,7 +237,12 @@ impl Lbfgs {
     }
 
     /// Set orthantwise parameters. See [Orthantwise] for parameters.
-    pub fn with_orthantwise(mut self, c: f64, start: usize, end: impl Into<Option<usize>>) -> Self {
+    pub fn with_orthantwise(
+        mut self,
+        c: f128,
+        start: usize,
+        end: impl Into<Option<usize>>,
+    ) -> Self {
         assert!(
             c.is_sign_positive(),
             "Invalid parameter orthantwise c parameter specified."
@@ -259,8 +264,8 @@ impl Lbfgs {
     ///
     /// The default value is 1e-4. This parameter should be greater
     /// than zero and smaller than 0.5.
-    pub fn with_linesearch_ftol(mut self, ftol: f64) -> Self {
-        assert!(ftol >= 0.0, "Invalid parameter ftol specified.");
+    pub fn with_linesearch_ftol(mut self, ftol: f128) -> Self {
+        assert!(ftol >= 0.0f128, "Invalid parameter ftol specified.");
         self.param.linesearch.ftol = ftol;
 
         self
@@ -274,9 +279,9 @@ impl Lbfgs {
     /// advantageous to set this parameter to a small value. A typical small
     /// value is 0.1. This parameter should be greater than the ftol parameter
     /// (1e-4) and smaller than 1.0.
-    pub fn with_linesearch_gtol(mut self, gtol: f64) -> Self {
+    pub fn with_linesearch_gtol(mut self, gtol: f128) -> Self {
         assert!(
-            gtol >= 0.0 && gtol < 1.0 && gtol > self.param.linesearch.ftol,
+            gtol >= 0.0f128 && gtol < 1.0f128 && gtol > self.param.linesearch.ftol,
             "Invalid parameter gtol specified."
         );
 
@@ -313,8 +318,8 @@ impl Lbfgs {
     ///  estimate the machine precision. The line search routine will terminate
     ///  with the status code (::LBFGSERR_ROUNDING_ERROR) if the relative width
     ///  of the interval of uncertainty is less than this parameter.
-    pub fn with_linesearch_xtol(mut self, xtol: f64) -> Self {
-        assert!(xtol >= 0.0, "Invalid parameter xtol specified.");
+    pub fn with_linesearch_xtol(mut self, xtol: f128) -> Self {
+        assert!(xtol >= 0.0f128, "Invalid parameter xtol specified.");
 
         self.param.linesearch.xtol = xtol;
         self
@@ -326,8 +331,8 @@ impl Lbfgs {
     /// exponents are too large for the machine being used, or unless the
     /// problem is extremely badly scaled (in which case the exponents should be
     /// increased).
-    pub fn with_linesearch_min_step(mut self, min_step: f64) -> Self {
-        assert!(min_step >= 0.0, "Invalid parameter min_step specified.");
+    pub fn with_linesearch_min_step(mut self, min_step: f128) -> Self {
+        assert!(min_step >= 0.0f128, "Invalid parameter min_step specified.");
 
         self.param.linesearch.min_step = min_step;
         self
@@ -366,8 +371,8 @@ impl Lbfgs {
     ///
     /// The default value of delta is 1e-5.
     ///
-    pub fn with_fx_delta(mut self, delta: f64, past: usize) -> Self {
-        assert!(delta >= 0.0, "Invalid parameter delta specified.");
+    pub fn with_fx_delta(mut self, delta: f128, past: usize) -> Self {
+        assert!(delta >= 0.0f128, "Invalid parameter delta specified.");
 
         self.param.past = past;
         self.param.delta = delta;
@@ -409,9 +414,9 @@ impl Lbfgs {
     /// # Return
     ///
     /// * on success, return final evaluated `Problem`.
-    pub fn minimize<E, G>(self, x: &mut [f64], eval_fn: E, mut prgr_fn: G) -> Result<Report>
+    pub fn minimize<E, G>(self, x: &mut [f128], eval_fn: E, mut prgr_fn: G) -> Result<Report>
     where
-        E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+        E: FnMut(&[f128], &mut [f128]) -> Result<f128>,
         G: FnMut(&Progress) -> bool,
     {
         let mut state = self.build(x, eval_fn)?;
@@ -437,7 +442,7 @@ impl Lbfgs {
 /// L-BFGS optimization state allowing iterative propagation
 pub struct LbfgsState<'a, E>
 where
-    E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+    E: FnMut(&[f128], &mut [f128]) -> Result<f128>,
 {
     /// LBFGS parameters
     vars: LbfgsParam,
@@ -445,7 +450,7 @@ where
     /// Define how to evaluate gradient and value
     prbl: Option<Problem<'a, E>>,
     end: usize,
-    step: f64,
+    step: f128,
     k: usize,
     lm_arr: Vec<IterationData>,
     ncall: usize,
@@ -453,9 +458,9 @@ where
 
 impl Lbfgs {
     /// Build LBFGS state struct for iteration.
-    pub fn build<'a, E>(self, x: &'a mut [f64], eval_fn: E) -> Result<LbfgsState<'a, E>>
+    pub fn build<'a, E>(self, x: &'a mut [f128], eval_fn: E) -> Result<LbfgsState<'a, E>>
     where
-        E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+        E: FnMut(&[f128], &mut [f128]) -> Result<f128>,
     {
         // Initialize the limited memory.
         let param = &self.param;
@@ -471,12 +476,12 @@ impl Lbfgs {
 
         // Compute the initial step:
         let dnorm = problem.search_direction().vec2norm();
-        let step = if self.param.constrain_step_size {
+        let step: f128 = if self.param.constrain_step_size {
             // Same heuristic you already use after an iteration:
             // gives step = 1 when ||d|| <= 1, else 1/||d||
-            self.param.max_step_size.min(dnorm) / (if dnorm > 0f64 { dnorm } else { 1f64 })
+            self.param.max_step_size.min(dnorm) / (if dnorm > 0.0f128 { dnorm } else { 1.0f128 })
         } else {
-            1f64
+            1.0f128
         };
 
         // Apply Powell damping or not
@@ -502,7 +507,7 @@ impl Lbfgs {
 
 impl<'a, E> LbfgsState<'a, E>
 where
-    E: FnMut(&[f64], &mut [f64]) -> Result<f64>,
+    E: FnMut(&[f128], &mut [f128]) -> Result<f128>,
 {
     /// Check if stopping critera met. Panics if not initialized.
     pub fn is_converged(&self) -> bool {
@@ -570,14 +575,16 @@ where
         let dnorm = d.vec2norm();
         ensure!(
             dnorm.is_sign_positive(),
-            "invalid norm value: {dnorm}, dvector = {d:?}"
+            "invalid norm value: {:.6}, dvector = {:?}",
+            dnorm as f64,
+            d
         );
 
         // Constrains the step size to prevent wild steps.
         if self.vars.constrain_step_size {
             self.step = self.vars.max_step_size.min(dnorm) / dnorm;
         } else {
-            self.step = 1.0;
+            self.step = 1.0f128;
         }
 
         // Constrain the search direction for orthant-wise updates.
@@ -598,8 +605,8 @@ where
 /// Algorithm 7.4, in Nocedal, J.; Wright, S. Numerical Optimization; Springer Science & Business Media, 2006.
 fn lbfgs_two_loop_recursion(
     lm_arr: &mut [IterationData],
-    d: &mut [f64], // search direction
-    gamma: f64,    // H_k^{0} = \gamma I
+    d: &mut [f128], // search direction
+    gamma: f128,    // H_k^{0} = \gamma I
     m: usize,
     k: usize,
     end: usize,
@@ -618,7 +625,7 @@ fn lbfgs_two_loop_recursion(
         // q_{i} = q_{i+1} - \alpha_{i} y_{i}.
         d.vecadd(&it.y, -it.alpha);
     }
-    d.vecscale(gamma);
+    d.vecscale(gamma.into());
 
     // L-BFGS two-loop recursion, part2
     for _ in 0..bound {
@@ -636,23 +643,23 @@ fn lbfgs_two_loop_recursion(
 /// Internal iternation data for L-BFGS
 #[derive(Clone)]
 struct IterationData {
-    alpha: f64,
+    alpha: f128,
 
-    s: Vec<f64>,
+    s: Vec<f128>,
 
-    y: Vec<f64>,
+    y: Vec<f128>,
 
     /// vecdot(y, s)
-    ys: f64,
+    ys: f128,
 }
 
 impl IterationData {
     fn new(n: usize) -> Self {
         IterationData {
-            alpha: 0.0,
-            ys: 0.0,
-            s: vec![0.0; n],
-            y: vec![0.0; n],
+            alpha: 0.0f128,
+            ys: 0.0f128,
+            s: vec![0.0f128; n],
+            y: vec![0.0f128; n],
         }
     }
 
@@ -669,19 +676,24 @@ impl IterationData {
     ///
     fn update(
         &mut self,
-        x: &[f64],
-        xp: &[f64],
-        gx: &[f64],
-        gp: &[f64],
-        step: f64,
+        x: &[f128],
+        xp: &[f128],
+        gx: &[f128],
+        gp: &[f128],
+        step: f128,
         damping: bool,
-    ) -> Result<f64> {
+    ) -> Result<f128> {
         // Update vectors s and y:
         // s_{k} = x_{k+1} - x_{k} = \alpha * d_{k}.
         // y_{k} = g_{k+1} - g_{k}.
         self.s.vecdiff(x, xp);
         let d = self.s.vec2norm();
-        ensure!(d != 0.0, "x not changed with step {step}\n x = {xp:?}");
+        ensure!(
+            d != 0.0f128,
+            "x not changed with step {:.6}\n x = {:?}",
+            step as f64,
+            xp
+        );
         self.y.vecdiff(gx, gp);
 
         // Compute scalars ys and yy:
@@ -690,7 +702,7 @@ impl IterationData {
         // Notice that yy is used for scaling the intial inverse hessian matrix H_0 (Cholesky factor).
         let ys = self.y.vecdot(&self.s);
         let yy = self.y.vecdot(&self.y);
-        ensure!(yy != 0.0, "gx not changed\n g = {gx:?}");
+        ensure!(yy != 0.0f128, "gx not changed\n g = {gx:?}");
         self.ys = ys;
 
         // Al-Baali2014JOTA: Damped Techniques for the Limited Memory BFGS
@@ -699,12 +711,12 @@ impl IterationData {
         //
         // Nocedal suggests an equivalent value of 0.8 for sigma2 (Damped BFGS
         // updating)
-        let sigma2 = 0.6;
-        let sigma3 = 3.0;
+        let sigma2: f128 = 0.6f128;
+        let sigma3: f128 = 3.0f128;
         if damping {
             debug!(
                 "Applying Powell damping, sigma2 = {}, sigma3 = {}",
-                sigma2, sigma3
+                sigma2 as f64, sigma3 as f64
             );
 
             // B_k * Sk = B_k * (x_k + step*d_k - x_k) = B_k * step * d_k = -g_k * step
@@ -713,16 +725,16 @@ impl IterationData {
             // s_k^T * B_k * s_k
             let sbs = self.s.vecdot(&bs);
 
-            if ys < (1.0 - sigma2) * sbs {
+            if ys < (1.0f128 - sigma2) * sbs {
                 trace!("damping case1");
                 let theta = sigma2 * sbs / (sbs - ys);
-                bs.vecscale(1.0 - theta);
+                bs.vecscale(1.0f128 - theta);
                 bs.vecadd(&self.y, theta);
                 self.y.veccpy(&bs);
-            } else if ys > (1.0 + sigma3) * sbs {
+            } else if ys > (1.0f128 + sigma3) * sbs {
                 trace!("damping case2");
                 let theta = sigma3 * sbs / (ys - sbs);
-                bs.vecscale(1.0 - theta);
+                bs.vecscale(1.0f128 - theta);
                 bs.vecadd(&self.y, theta);
             } else {
                 trace!("damping case3");
@@ -752,8 +764,8 @@ fn satisfying_stop_conditions(param: &LbfgsParam, prgr: Progress) -> bool {
 /// The criterion is given by the following formula:
 ///     |g(x)| / \max(1, |x|) < \epsilon
 #[inline]
-fn satisfying_scaled_gnorm(prgr: &Progress, epsilon: f64) -> bool {
-    if prgr.gnorm / prgr.xnorm.max(1.0) <= epsilon {
+fn satisfying_scaled_gnorm(prgr: &Progress, epsilon: f128) -> bool {
+    if prgr.gnorm / prgr.xnorm.max(1.0f128) <= epsilon {
         // Convergence.
         info!("L-BFGS reaches convergence.");
         true
@@ -789,7 +801,7 @@ fn satisfying_max_evaluations(prgr: &Progress, max_evaluations: usize) -> bool {
 }
 
 #[inline]
-fn satisfying_max_gnorm(prgr: &Progress, max_gnorm: f64) -> bool {
+fn satisfying_max_gnorm(prgr: &Progress, max_gnorm: f128) -> bool {
     prgr.gx.vec2norm() <= max_gnorm
 }
 
@@ -805,7 +817,7 @@ fn satisfying_max_gnorm(prgr: &Progress, max_gnorm: f64) -> bool {
 /// * delta: max fx delta allowed
 ///
 #[inline]
-fn satisfying_delta<'a>(prgr: &Progress, pf: &'a mut [f64], delta: f64) -> bool {
+fn satisfying_delta<'a>(prgr: &Progress, pf: &'a mut [f128], delta: f128) -> bool {
     let k = prgr.niter;
     let fx = prgr.fx;
     let past = pf.len();

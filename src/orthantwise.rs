@@ -21,7 +21,7 @@ pub struct Orthantwise {
     ///
     /// This parameter is the coefficient for the |x|, i.e., C. The
     /// default value is 1.
-    pub c: f64,
+    pub c: f128,
 
     /// Start index for computing L1 norm of the variables.
     ///
@@ -47,7 +47,7 @@ pub struct Orthantwise {
 impl Default for Orthantwise {
     fn default() -> Self {
         Orthantwise {
-            c: 1.0,
+            c: 1.0f128,
             start: 0,
             end: None,
         }
@@ -56,7 +56,7 @@ impl Default for Orthantwise {
 
 impl Orthantwise {
     /// a dirty wrapper for start and end parameters in orthantwise optimization
-    fn start_end(&self, x: &[f64]) -> (usize, usize) {
+    fn start_end(&self, x: &[f128]) -> (usize, usize) {
         let start = self.start;
         let n = x.len();
         // do not panic when end parameter is too large
@@ -70,10 +70,10 @@ impl Orthantwise {
     }
 
     /// Compute the L1 norm of the variable x.
-    pub(crate) fn x1norm(&self, x: &[f64]) -> f64 {
+    pub(crate) fn x1norm(&self, x: &[f128]) -> f128 {
         let (start, end) = self.start_end(x);
 
-        let mut s = 0.0;
+        let mut s: f128 = 0.0f128;
         for i in start..end {
             s += self.c * x[i].abs();
         }
@@ -82,7 +82,7 @@ impl Orthantwise {
     }
 
     /// Compute the psuedo-gradient.
-    pub(crate) fn compute_pseudo_gradient(&self, pg: &mut [f64], x: &[f64], g: &[f64]) {
+    pub(crate) fn compute_pseudo_gradient(&self, pg: &mut [f128], x: &[f128], g: &[f128]) {
         let (start, end) = self.start_end(x);
 
         for i in 0..start {
@@ -91,20 +91,24 @@ impl Orthantwise {
 
         // Compute the psuedo-gradient (see Eq 4)
         let c = self.c;
-        assert!(c.is_sign_positive(), "invalid orthantwise param c: {c}");
+        assert!(
+            c.is_sign_positive(),
+            "invalid orthantwise param c: {}",
+            c as f64
+        );
         for i in start..end {
             // Differentiable.
-            if x[i] != 0.0 {
+            if x[i] != 0.0f128 {
                 pg[i] = g[i] + x[i].signum() * c;
             } else {
                 let right_partial = g[i] + c;
                 let left_partial = g[i] - c;
-                if right_partial < 0.0 {
+                if right_partial < 0.0f128 {
                     pg[i] = right_partial;
-                } else if left_partial > 0.0 {
+                } else if left_partial > 0.0f128 {
                     pg[i] = left_partial;
                 } else {
-                    pg[i] = 0.0;
+                    pg[i] = 0.0f128;
                 }
             }
         }
@@ -118,7 +122,7 @@ impl Orthantwise {
     ///
     /// During the line search, each search point is projected onto
     /// the orthant of the previous point.
-    pub(crate) fn constraint_line_search(&self, x: &mut [f64], wp: &[f64]) {
+    pub(crate) fn constraint_line_search(&self, x: &mut [f128], wp: &[f128]) {
         let (start, end) = self.start_end(x);
 
         // FIXME: after constraint, x may be identical to xp, which
@@ -140,7 +144,7 @@ impl Orthantwise {
     /// # Parameters
     /// * d: direction vector
     /// * pg: previous gradient vector
-    pub(crate) fn constrain_search_direction(&self, d: &mut [f64], pg: &[f64]) {
+    pub(crate) fn constrain_search_direction(&self, d: &mut [f128], pg: &[f128]) {
         let (start, end) = self.start_end(pg);
 
         // p^k = pi(d^k; v^k)
@@ -162,25 +166,25 @@ impl Orthantwise {
         // (confirmed with the author, Galen Andrew).
         assert_ne!(
             d.vec2norm(),
-            0.0,
+            0.0f128,
             "invalid direction vector after constraints: {d:?}"
         );
     }
 }
 
 // pi alignment operator - projection of x on orthat defined by y
-fn project<'a>(x: impl Iterator<Item = &'a mut f64>, y: impl Iterator<Item = f64>) {
+fn project<'a>(x: impl Iterator<Item = &'a mut f128>, y: impl Iterator<Item = f128>) {
     for (xi, yi) in x.zip(y) {
         if signum(*xi) != signum(yi) {
-            *xi = 0.0;
+            *xi = 0.0f128;
         }
     }
 }
 
 // follow the mathematical definition
-pub fn signum(x: f64) -> f64 {
-    if x.is_nan() || x == 0.0 {
-        0.0
+pub fn signum(x: f128) -> f128 {
+    if x.is_nan() || x == 0.0f128 {
+        0.0f128
     } else {
         x.signum()
     }
